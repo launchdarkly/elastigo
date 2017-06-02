@@ -52,6 +52,8 @@ type Conn struct {
 	// value of 5 minutes. The EpsilonValueCalculator uses this to calculate a score
 	// from the weighted average response time.
 	DecayDuration time.Duration
+
+	httpClient *http.Client
 }
 
 func NewConn() *Conn {
@@ -62,6 +64,7 @@ func NewConn() *Conn {
 		ClusterDomains: []string{DefaultDomain},
 		Port:           DefaultPort,
 		DecayDuration:  time.Duration(DefaultDecayDuration * time.Second),
+		httpClient:     &http.Client{Transport: http.DefaultTransport},
 	}
 }
 
@@ -103,6 +106,11 @@ func (c *Conn) SetHosts(newhosts []string) {
 	// Reinitialise the host pool Pretty naive as this will nuke the current
 	// hostpool, and therefore reset any scoring
 	c.initializeHostPool()
+}
+
+// Sets the timeout for each individual request.
+func (c *Conn) SetTimeout(timeout time.Duration) {
+	c.httpClient.Timeout = timeout
 }
 
 // Set up the host pool to be used
@@ -166,6 +174,7 @@ func (c *Conn) NewRequest(method, path, query string) (*Request, error) {
 	}
 
 	newRequest := &Request{
+		Client: c.httpClient,
 		Request:      req,
 		hostResponse: hr,
 	}
