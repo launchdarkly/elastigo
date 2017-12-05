@@ -26,7 +26,7 @@ func (c *Conn) AnalyzeIndices(index string, args map[string]interface{}) (Analyz
 	}
 	var analyzeUrl string = "/_analyze"
 	if len(index) > 0 {
-		analyzeUrl = fmt.Sprintf("/%s/%s", index, analyzeUrl)
+		analyzeUrl = fmt.Sprintf("/%s%s", index, analyzeUrl)
 	}
 
 	body, err := c.DoCommand("GET", analyzeUrl, args, nil)
