@@ -108,6 +108,10 @@ func (b *BulkIndexer) NumErrors() uint64 {
 }
 
 func (c *Conn) NewBulkIndexer(maxConns int) *BulkIndexer {
+	return c.NewBulkIndexerWithChannelSize(maxConns, 100)
+}
+
+func (c *Conn) NewBulkIndexerWithChannelSize(maxConns, bulkChannelSize int) *BulkIndexer {
 	b := BulkIndexer{conn: c, sendBuf: make(chan *bytes.Buffer, maxConns)}
 	b.needsTimeBasedFlush = true
 	b.buf = new(bytes.Buffer)
@@ -115,7 +119,7 @@ func (c *Conn) NewBulkIndexer(maxConns int) *BulkIndexer {
 	b.BulkMaxBuffer = BulkMaxBuffer
 	b.BulkMaxDocs = BulkMaxDocs
 	b.BufferDelayMax = time.Duration(BulkDelaySeconds) * time.Second
-	b.bulkChannel = make(chan []byte, 100)
+	b.bulkChannel = make(chan []byte, bulkChannelSize)
 	b.sendWg = new(sync.WaitGroup)
 	b.timerDoneChan = make(chan struct{})
 	return &b
