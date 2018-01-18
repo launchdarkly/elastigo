@@ -188,6 +188,20 @@ func (b *BulkIndexer) Flush() {
 	b.mu.Unlock()
 }
 
+// SendBufLen gets the current length and capacity of the channel which buffers elasticsearch requests.
+func (b *BulkIndexer) SendBufLen() (length, capacity int) {
+	length = len(b.sendBuf)
+	capacity = cap(b.sendBuf)
+	return
+}
+
+// BulkChannelLen gets the current length and capacity of the channel which buffers elasticsearch operations into bulk requests
+func (b *BulkIndexer) BulkChannelLen() (length, capacity int) {
+	length = len(b.bulkChannel)
+	capacity = cap(b.bulkChannel)
+	return
+}
+
 func (b *BulkIndexer) startHttpSender() {
 
 	// this sends http requests to elasticsearch it uses maxConns to open up that
