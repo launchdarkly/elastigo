@@ -96,11 +96,22 @@ type BulkIndexer struct {
 	sendWg *sync.WaitGroup
 }
 
+type EsScript struct {
+	Lang   string                 `json:"lang,omitempty"`
+	File   string                 `json:"file,omitempty"`
+	Inline string                 `json:"inline,omitempty"`
+	Params map[string]interface{} `json:"params,omitempty"`
+}
+
 func (b *BulkIndexer) NumErrors() uint64 {
 	return atomic.LoadUint64(&b.numErrors)
 }
 
 func (c *Conn) NewBulkIndexer(maxConns int) *BulkIndexer {
+	return c.NewBulkIndexerWithChannelSize(maxConns, 100)
+}
+
+func (c *Conn) NewBulkIndexerWithChannelSize(maxConns, bulkChannelSize int) *BulkIndexer {
 	b := BulkIndexer{conn: c, sendBuf: make(chan *bytes.Buffer, maxConns)}
 	b.needsTimeBasedFlush = true
 	b.buf = new(bytes.Buffer)
@@ -108,7 +119,7 @@ func (c *Conn) NewBulkIndexer(maxConns int) *BulkIndexer {
 	b.BulkMaxBuffer = BulkMaxBuffer
 	b.BulkMaxDocs = BulkMaxDocs
 	b.BufferDelayMax = time.Duration(BulkDelaySeconds) * time.Second
-	b.bulkChannel = make(chan []byte, 100)
+	b.bulkChannel = make(chan []byte, bulkChannelSize)
 	b.sendWg = new(sync.WaitGroup)
 	b.timerDoneChan = make(chan struct{})
 	return &b
@@ -135,7 +146,10 @@ func (b *BulkIndexer) Start() {
 	go func() {
 		// XXX(j): Refactor this stuff to use an interface.
 		if b.Sender == nil {
-			b.Sender = b.Send
+			b.Sender = func(buf *bytes.Buffer) error {
+				_, err := b.Send(buf)
+				return err
+			}
 		}
 		// Backwards compatibility
 		b.startHttpSender()
@@ -304,9 +318,16 @@ func (b *BulkIndexer) Delete(index, _type, id string) {
 	return
 }
 
-func (b *BulkIndexer) UpdateWithWithScript(index string, _type string, id, parent, ttl string, date *time.Time, script string) error {
+func (b *BulkIndexer) UpdateWithWithScript(index string, _type string, id, parent, ttl string, date *time.Time, script EsScript, scripted_upsert bool, upsert interface{}) error {
 
 	var data map[string]interface{} = make(map[string]interface{})
+	if scripted_upsert {
+		data["scripted_upsert"] = true
+		data["upsert"] = map[string]interface{}{}
+	} else {
+		data["upsert"] = upsert
+	}
+
 	data["script"] = script
 	return b.Update(index, _type, id, parent, ttl, date, data)
 }
@@ -322,32 +343,33 @@ func (b *BulkIndexer) UpdateWithPartialDoc(index string, _type string, id, paren
 	return b.Update(index, _type, id, parent, ttl, date, data)
 }
 
+type BulkResponseStruct struct {
+	Took   int64                    `json:"took"`
+	Errors bool                     `json:"errors"`
+	Items  []map[string]interface{} `json:"items"`
+}
+
 // This does the actual send of a buffer, which has already been formatted
 // into bytes of ES formatted bulk data
-func (b *BulkIndexer) Send(buf *bytes.Buffer) error {
-	type responseStruct struct {
-		Took   int64                    `json:"took"`
-		Errors bool                     `json:"errors"`
-		Items  []map[string]interface{} `json:"items"`
-	}
+func (b *BulkIndexer) Send(buf *bytes.Buffer) (BulkResponseStruct, error) {
 
-	response := responseStruct{}
+	response := BulkResponseStruct{}
 
 	body, err := b.conn.DoCommand("POST", fmt.Sprintf("/_bulk?refresh=%t", b.Refresh), nil, buf)
 
 	if err != nil {
 		atomic.AddUint64(&b.numErrors, 1)
-		return err
+		return response, err
 	}
 	// check for response errors, bulk insert will give 200 OK but then include errors in response
 	jsonErr := json.Unmarshal(body, &response)
 	if jsonErr == nil {
 		if response.Errors {
 			atomic.AddUint64(&b.numErrors, uint64(len(response.Items)))
-			return fmt.Errorf("Bulk Insertion Error. Failed item count [%d]", len(response.Items))
+			return response, fmt.Errorf("Bulk Insertion Error. Failed item count [%d]", len(response.Items))
 		}
 	}
-	return nil
+	return response, nil
 }
 
 // Given a set of arguments for index, type, id, data create a set of bytes that is formatted for bulkd index
