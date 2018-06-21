@@ -162,6 +162,7 @@ func (c *Conn) NewRequest(method, path, query string) (*Request, error) {
 		uri = fmt.Sprintf("%s://%s:%s%s", c.Protocol, host, portNum, path)
 	}
 	req, err := http.NewRequest(method, uri, nil)
+	hr.Mark(err)
 	if err != nil {
 		return nil, err
 	}
