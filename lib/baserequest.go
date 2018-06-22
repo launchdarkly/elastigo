@@ -72,11 +72,12 @@ func (c *Conn) DoCommand(method string, url string, args map[string]interface{},
 	}
 
 	httpStatusCode, body, err = req.Do(&response)
+	req.hostResponse.Mark(err)
 	if err != nil {
 		return body, err
 	}
 	if httpStatusCode > 304 {
-
+		req.hostResponse.Mark(ESError{time.Now(), "ES: HTTP Status Code > 304", httpStatusCode})
 		jsonErr := json.Unmarshal(body, &response)
 		if jsonErr == nil {
 			if res_err, ok := response["error"]; ok {
