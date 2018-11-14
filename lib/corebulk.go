@@ -98,6 +98,7 @@ type BulkIndexer struct {
 
 type EsScript struct {
 	Lang   string                 `json:"lang,omitempty"`
+	Id     string                 `json:"id, omitempty"`
 	File   string                 `json:"file,omitempty"`
 	Inline string                 `json:"inline,omitempty"`
 	Params map[string]interface{} `json:"params,omitempty"`
