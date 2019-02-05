@@ -14,19 +14,15 @@ package elastigo
 import (
 	"errors"
 	"fmt"
-	hostpool "github.com/bitly/go-hostpool"
 	"net/http"
 	"net/url"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
-<<<<<<< HEAD
-=======
 
 	hostpool "github.com/bitly/go-hostpool"
 	retry "github.com/hashicorp/go-retryablehttp"
->>>>>>> 82fa545... updated the default elastic HTTP client with the updated retryable HTTP client
 )
 
 const (
