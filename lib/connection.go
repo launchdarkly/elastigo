@@ -21,6 +21,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+<<<<<<< HEAD
+=======
+
+	hostpool "github.com/bitly/go-hostpool"
+	retry "github.com/hashicorp/go-retryablehttp"
+>>>>>>> 82fa545... updated the default elastic HTTP client with the updated retryable HTTP client
 )
 
 const (
@@ -33,7 +39,8 @@ const (
 )
 
 var (
-	httpClient *http.Client = &http.Client{Transport: http.DefaultTransport}
+	// httpClient *http.Client = &http.Client{Transport: http.DefaultTransport}
+	httpClient *http.Client = retry.NewClient().HTTPClient
 )
 
 type Conn struct {
