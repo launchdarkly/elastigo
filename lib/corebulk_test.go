@@ -84,8 +84,8 @@ func TestBulkIndexerBasic(t *testing.T) {
 	c.DeleteIndex(testIndex)
 
 	indexer := c.NewBulkIndexer(3)
-	indexer.Sender = func(buf *bytes.Buffer) error {
-		messageSets += 1
+	indexer.Sender = func(buf *bytes.Buffer) (BulkResponseStruct, error) {
+		messageSets++
 		totalBytesSent += buf.Len()
 		buffers.Append(buf)
 		//log.Printf("buffer:%s", string(buf.Bytes()))
@@ -195,7 +195,7 @@ func XXXTestBulkUpdate(t *testing.T) {
 	c := NewTestConn()
 	c.Port = "9200"
 	indexer := c.NewBulkIndexer(3)
-	indexer.Sender = func(buf *bytes.Buffer) error {
+	indexer.Sender = func(buf *bytes.Buffer) (BulkResponseStruct, error) {
 		messageSets += 1
 		totalBytesSent += buf.Len()
 		buffers.Append(buf)
@@ -254,7 +254,7 @@ func TestBulkSmallBatch(t *testing.T) {
 	indexer.BufferDelayMax = 100 * time.Millisecond
 	indexer.BulkMaxDocs = 2
 	messageSets = 0
-	indexer.Sender = func(buf *bytes.Buffer) error {
+	indexer.Sender = func(buf *bytes.Buffer) (BulkResponseStruct, error) {
 		messageSets += 1
 		return indexer.Send(buf)
 	}
@@ -278,11 +278,11 @@ func TestBulkDelete(t *testing.T) {
 	indexer := c.NewBulkIndexer(1)
 	sentBytes := []byte{}
 
-	indexer.Sender = func(buf *bytes.Buffer) error {
+	indexer.Sender = func(buf *bytes.Buffer) (BulkResponseStruct, error) {
 		lock.Lock()
 		sentBytes = append(sentBytes, buf.Bytes()...)
 		lock.Unlock()
-		return nil
+		return BulkResponseStruct{}, nil
 	}
 
 	indexer.Start()
@@ -346,7 +346,7 @@ func BenchmarkSend(b *testing.B) {
 	totalBytes := 0
 	sets := 0
 	indexer := c.NewBulkIndexer(1)
-	indexer.Sender = func(buf *bytes.Buffer) error {
+	indexer.Sender = func(buf *bytes.Buffer) (BulkResponseStruct, error) {
 		totalBytes += buf.Len()
 		sets += 1
 		//log.Println("got bulk")
@@ -384,7 +384,7 @@ func BenchmarkSendBytes(b *testing.B) {
 	totalBytes := 0
 	sets := 0
 	indexer := c.NewBulkIndexer(1)
-	indexer.Sender = func(buf *bytes.Buffer) error {
+	indexer.Sender = func(buf *bytes.Buffer) (BulkResponseStruct, error) {
 		totalBytes += buf.Len()
 		sets += 1
 		return indexer.Send(buf)

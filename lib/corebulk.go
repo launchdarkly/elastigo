@@ -46,7 +46,7 @@ type BulkIndexer struct {
 
 	// We are creating a variable defining the func responsible for sending
 	// to allow a mock sendor for test purposes
-	Sender func(*bytes.Buffer) error
+	Sender func(*bytes.Buffer) (BulkResponseStruct, error)
 
 	// The refresh parameter can be set to true in order to refresh the
 	// relevant primary and replica shards immediately after the bulk
@@ -147,9 +147,9 @@ func (b *BulkIndexer) Start() {
 	go func() {
 		// XXX(j): Refactor this stuff to use an interface.
 		if b.Sender == nil {
-			b.Sender = func(buf *bytes.Buffer) error {
-				_, err := b.Send(buf)
-				return err
+			b.Sender = func(buf *bytes.Buffer) (BulkResponseStruct, error) {
+				resp, err := b.Send(buf)
+				return resp, err
 			}
 		}
 		// Backwards compatibility
@@ -215,7 +215,7 @@ func (b *BulkIndexer) startHttpSender() {
 			for buf := range b.sendBuf {
 				// Copy for the potential re-send.
 				bufCopy := bytes.NewBuffer(buf.Bytes())
-				err := b.Sender(buf)
+				_, err := b.Sender(buf)
 
 				// Perhaps a b.FailureStrategy(err)  ??  with different types of strategies
 				//  1.  Retry, then panic
@@ -224,7 +224,7 @@ func (b *BulkIndexer) startHttpSender() {
 				if err != nil {
 					if b.RetryForSeconds > 0 {
 						time.Sleep(time.Second * time.Duration(b.RetryForSeconds))
-						err = b.Sender(bufCopy)
+						_, err = b.Sender(bufCopy)
 						if err == nil {
 							// Successfully re-sent with no error
 							continue

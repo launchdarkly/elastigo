@@ -121,13 +121,13 @@ func LoadTestData() {
 	docCt := 0
 	errCt := 0
 	indexer := c.NewBulkIndexer(1)
-	indexer.Sender = func(buf *bytes.Buffer) error {
+	indexer.Sender = func(buf *bytes.Buffer) (BulkResponseStruct, error) {
 		// log.Printf("Sent %d bytes total %d docs sent", buf.Len(), docCt)
 		req, err := c.NewRequest("POST", "/_bulk", "")
 		if err != nil {
 			errCt += 1
 			log.Fatalf("ERROR: %v", err)
-			return err
+			return BulkResponseStruct{}, err
 		}
 		req.SetBody(buf)
 		//		res, err := http.DefaultClient.Do(*(api.Request(req)))
@@ -136,12 +136,12 @@ func LoadTestData() {
 		if err != nil {
 			errCt += 1
 			log.Fatalf("ERROR: %v", err)
-			return err
+			return BulkResponseStruct{}, err
 		}
 		if httpStatusCode != 200 {
 			log.Fatalf("Not 200! %d %q\n", httpStatusCode, buf.String())
 		}
-		return nil
+		return BulkResponseStruct{}, nil
 	}
 	indexer.Start()
 	resp, err := http.Get("http://data.githubarchive.org/2012-12-10-15.json.gz")

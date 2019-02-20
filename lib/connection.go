@@ -14,26 +14,28 @@ package elastigo
 import (
 	"errors"
 	"fmt"
-	hostpool "github.com/bitly/go-hostpool"
 	"net/http"
 	"net/url"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	hostpool "github.com/bitly/go-hostpool"
+	retry "github.com/hashicorp/go-retryablehttp"
 )
 
 const (
 	Version         = "0.0.2"
 	DefaultProtocol = "http"
 	DefaultDomain   = "localhost"
-	DefaultPort     = "9200"
+	DefaultPort     = "9205"
 	// A decay duration of zero results in the default behaviour
 	DefaultDecayDuration = 0
 )
 
 var (
-	httpClient *http.Client = &http.Client{Transport: http.DefaultTransport}
+	httpClient *http.Client = retry.NewClient().HTTPClient
 )
 
 type Conn struct {
