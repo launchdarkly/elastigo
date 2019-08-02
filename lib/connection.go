@@ -14,13 +14,15 @@ package elastigo
 import (
 	"errors"
 	"fmt"
-	hostpool "github.com/bitly/go-hostpool"
+	"net"
 	"net/http"
 	"net/url"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	hostpool "github.com/bitly/go-hostpool"
 )
 
 const (
@@ -33,7 +35,20 @@ const (
 )
 
 var (
-	httpClient *http.Client = &http.Client{Transport: http.DefaultTransport}
+	httpClient *http.Client = &http.Client{Transport: &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 300 * time.Second,
+			DualStack: true,
+		}).DialContext,
+
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   100,
+		IdleConnTimeout:       30 * time.Second,
+		TLSHandshakeTimeout:   5 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	},
+	}
 )
 
 type Conn struct {
