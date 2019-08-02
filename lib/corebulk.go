@@ -79,9 +79,9 @@ type BulkIndexer struct {
 	// Buffer for Max number of time before forcing flush
 	BufferDelayMax time.Duration
 	// Max buffer size in bytes before flushing to elasticsearch
-	BulkMaxBufferCB func() int // 1048576
+	BulkMaxBufferCB func() int // defaults to BulkMaxBuffer above
 	// Max number of Docs to hold in buffer before forcing flush
-	BulkMaxDocsCB func() int // 100
+	BulkMaxDocsCB func() int // defaults to BulkMaxDocs above
 
 	// Number of documents we have send through so far on this session
 	docCt int
