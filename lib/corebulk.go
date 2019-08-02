@@ -79,9 +79,9 @@ type BulkIndexer struct {
 	// Buffer for Max number of time before forcing flush
 	BufferDelayMax time.Duration
 	// Max buffer size in bytes before flushing to elasticsearch
-	BulkMaxBuffer int // 1048576
+	BulkMaxBufferCB func() int // defaults to BulkMaxBuffer above
 	// Max number of Docs to hold in buffer before forcing flush
-	BulkMaxDocs int // 100
+	BulkMaxDocsCB func() int // defaults to BulkMaxDocs above
 
 	// Number of documents we have send through so far on this session
 	docCt int
@@ -113,12 +113,16 @@ func (c *Conn) NewBulkIndexer(maxConns int) *BulkIndexer {
 }
 
 func (c *Conn) NewBulkIndexerWithChannelSize(maxConns, bulkChannelSize int) *BulkIndexer {
+	return c.NewBulkIndexerWithParams(maxConns, bulkChannelSize, func() int { return BulkMaxBuffer }, func() int { return BulkMaxDocs })
+}
+
+func (c *Conn) NewBulkIndexerWithParams(maxConns, bulkChannelSize int, bulkMaxBufferCb, bulkMaxDocsCb func() int) *BulkIndexer {
 	b := BulkIndexer{conn: c, sendBuf: make(chan *bytes.Buffer, maxConns)}
 	b.needsTimeBasedFlush = true
 	b.buf = new(bytes.Buffer)
 	b.maxConns = maxConns
-	b.BulkMaxBuffer = BulkMaxBuffer
-	b.BulkMaxDocs = BulkMaxDocs
+	b.BulkMaxBufferCB = bulkMaxBufferCb
+	b.BulkMaxDocsCB = bulkMaxDocsCb
 	b.BufferDelayMax = time.Duration(BulkDelaySeconds) * time.Second
 	b.bulkChannel = make(chan []byte, bulkChannelSize)
 	b.sendWg = new(sync.WaitGroup)
@@ -277,7 +281,7 @@ func (b *BulkIndexer) startDocChannel() {
 			b.mu.Lock()
 			b.docCt += 1
 			b.buf.Write(docBytes)
-			if b.buf.Len() >= b.BulkMaxBuffer || b.docCt >= b.BulkMaxDocs {
+			if b.buf.Len() >= b.BulkMaxBufferCB() || b.docCt >= b.BulkMaxDocsCB() {
 				b.needsTimeBasedFlush = false
 				//log.Printf("Send due to size:  docs=%d  bufsize=%d", b.docCt, b.buf.Len())
 				b.send(b.buf)
