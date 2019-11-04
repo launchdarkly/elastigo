@@ -158,12 +158,19 @@ func (b *BulkIndexer) Start() {
 		}
 		// Backwards compatibility
 		b.startHttpSender()
-		b.startDocChannel()
+
+		docChannelDoneSignal := b.startDocChannel()
+
 		b.startTimer()
 		ch := <-b.shutdownChan
-		time.Sleep(2 * time.Millisecond)
+
+		close(b.bulkChannel)
+		<-docChannelDoneSignal
 		b.Flush()
-		b.shutdown()
+
+		close(b.timerDoneChan)
+		close(b.sendBuf)
+		b.sendWg.Wait()
 		ch <- struct{}{}
 	}()
 }
@@ -273,7 +280,9 @@ func (b *BulkIndexer) startTimer() {
 	}()
 }
 
-func (b *BulkIndexer) startDocChannel() {
+func (b *BulkIndexer) startDocChannel() (doneSignal <-chan struct{}) {
+	doneChan := make(chan struct{})
+
 	// This goroutine accepts incoming byte arrays from the IndexBulk function and
 	// writes to buffer
 	go func() {
@@ -288,7 +297,10 @@ func (b *BulkIndexer) startDocChannel() {
 			}
 			b.mu.Unlock()
 		}
+		close(doneChan)
 	}()
+
+	return doneChan
 }
 
 func (b *BulkIndexer) send(buf *bytes.Buffer) {
@@ -297,14 +309,6 @@ func (b *BulkIndexer) send(buf *bytes.Buffer) {
 	b.buf = new(bytes.Buffer)
 	//	b.buf.Reset()
 	b.docCt = 0
-}
-
-func (b *BulkIndexer) shutdown() {
-	// This must be called after Flush()
-	close(b.timerDoneChan)
-	close(b.sendBuf)
-	close(b.bulkChannel)
-	b.sendWg.Wait()
 }
 
 // The index bulk API adds or updates a typed JSON document to a specific index, making it searchable.
