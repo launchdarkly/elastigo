@@ -159,15 +159,13 @@ func (b *BulkIndexer) Start() {
 		// Backwards compatibility
 		b.startHttpSender()
 
-		docChannelStopWait := &sync.WaitGroup{}
-		docChannelStopWait.Add(1)
-		b.startDocChannel(docChannelStopWait)
+		docChannelDoneSignal := b.startDocChannel()
 
 		b.startTimer()
 		ch := <-b.shutdownChan
 
 		close(b.bulkChannel)
-		docChannelStopWait.Wait()
+		<-docChannelDoneSignal
 		b.Flush()
 
 		close(b.timerDoneChan)
@@ -282,7 +280,10 @@ func (b *BulkIndexer) startTimer() {
 	}()
 }
 
-func (b *BulkIndexer) startDocChannel(stopWait *sync.WaitGroup) {
+func (b *BulkIndexer) startDocChannel() (doneSignal <-chan struct{}) {
+	doneChan := make(chan struct{})
+	doneSignal = doneChan
+
 	// This goroutine accepts incoming byte arrays from the IndexBulk function and
 	// writes to buffer
 	go func() {
@@ -297,8 +298,10 @@ func (b *BulkIndexer) startDocChannel(stopWait *sync.WaitGroup) {
 			}
 			b.mu.Unlock()
 		}
-		stopWait.Done()
+		close(doneChan)
 	}()
+
+	return doneSignal
 }
 
 func (b *BulkIndexer) send(buf *bytes.Buffer) {
