@@ -282,7 +282,6 @@ func (b *BulkIndexer) startTimer() {
 
 func (b *BulkIndexer) startDocChannel() (doneSignal <-chan struct{}) {
 	doneChan := make(chan struct{})
-	doneSignal = doneChan
 
 	// This goroutine accepts incoming byte arrays from the IndexBulk function and
 	// writes to buffer
@@ -301,7 +300,7 @@ func (b *BulkIndexer) startDocChannel() (doneSignal <-chan struct{}) {
 		close(doneChan)
 	}()
 
-	return doneSignal
+	return doneChan
 }
 
 func (b *BulkIndexer) send(buf *bytes.Buffer) {
